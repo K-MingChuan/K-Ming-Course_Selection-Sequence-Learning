@@ -3,7 +3,7 @@ import collections
 import numpy as np
 
 if __name__ == '__main__':
-    data, students = load_lv1_data()
+    data, students = load_lv1_data_students()
     data = np.reshape(data, (len(data), -1))  # flatten sequences
 
     departments_mask = collections.defaultdict(list)

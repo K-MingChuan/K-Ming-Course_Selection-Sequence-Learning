@@ -1,6 +1,7 @@
 import collections
 import json
 import numpy as np
+from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
 
 MAX_TIME = 7  # student can only have at most 12 semesters (6 grades)
@@ -9,20 +10,44 @@ _GRADE_BASE_YEAR = 103
 ELECTIVE_TYPE = 4
 GENERAL_TYPE = 5
 
+_elective_course_id_to_name_cache = None
+_elective_course_id_to_index_cache = None
+_elective_course_index_to_id_cache = None
+
+_lv1_data_cache = None
+_students_cache = None
+
 
 def load_elective_course_mapping_dicts(course_id_to_name=None):
     """
     :return: two dicts: (1) course_id_to_index (2) index_to_course_id
     """
+    global _elective_course_id_to_index_cache, _elective_course_index_to_id_cache
+
+    if _elective_course_id_to_index_cache and _elective_course_index_to_id_cache:
+        return _elective_course_id_to_index_cache, _elective_course_index_to_id_cache
+
     print("Loading mapping dicts...")
-    course_id_to_name = course_id_to_name or remain_taken_courses_from_id_to_name_dict(
-                                                load_elective_course_id_to_name())
+    course_id_to_name = course_id_to_name \
+                        or remain_taken_courses_from_id_to_name_dict(load_elective_course_id_to_name())
+
     course_ids = course_id_to_name.keys()
-    return dict((course_num, index) for index, course_num in enumerate(course_ids)), \
-           dict((index, course_num) for index, course_num in enumerate(course_ids))
+    course_id_to_index = dict((course_id, index) for index, course_id in enumerate(course_ids))
+    index_to_course_id = dict((index, course_id) for index, course_id in enumerate(course_ids))
+
+    if not _elective_course_id_to_index_cache:
+        _elective_course_id_to_index_cache = course_id_to_index
+    if not _elective_course_index_to_id_cache:
+        _elective_course_index_to_id_cache = index_to_course_id
+
+    return _elective_course_id_to_index_cache, _elective_course_index_to_id_cache
 
 
 def load_elective_course_id_to_name():
+    global _elective_course_id_to_name_cache
+    if _elective_course_id_to_name_cache:
+        return _elective_course_id_to_name_cache
+
     filenames = ['courses/courses_new_103_1.json', 'courses/courses_new_103_2.json',
                  'courses/courses_new_104_1.json', 'courses/courses_new_104_2.json',
                  'courses/courses_new_105_1.json', 'courses/courses_new_105_2.json',
@@ -37,8 +62,11 @@ def load_elective_course_id_to_name():
             for course in elective_courses:
                 course_id_to_name[course['courseId']] = course['name']
 
+    if not _elective_course_id_to_name_cache:
+        _elective_course_id_to_name_cache = course_id_to_name
+
     print('Elective courses loaded.')
-    return course_id_to_name
+    return _elective_course_id_to_name_cache
 
 
 def remain_taken_courses_from_id_to_name_dict(all_elective_course_id_to_names):
@@ -76,10 +104,14 @@ def load_students(transferred=False):
         return [student for student in json.load(fr) if student['tansfer'] == transferred]
 
 
-def load_lv1_data():
+def load_lv1_data_students():
     """
     :return: narrays of (data, all non-transferred students)
     """
+    global _lv1_data_cache, _students_cache
+    if _lv1_data_cache and _students_cache:
+        return _lv1_data_cache, _students_cache
+
     students = load_students(transferred=False)
     elective_course_id_to_index, _ = load_elective_course_mapping_dicts()
     elective_course_size = len(elective_course_id_to_index)
@@ -124,8 +156,50 @@ def load_lv1_data():
         if student_index % 100 == 0:
             print(student_index, " students done.")
 
+    if not _lv1_data_cache:
+        _lv1_data_cache = data
+    if not _students_cache:
+        _students_cache = np.array(students)
     print('LV1 Data loaded.')
-    return data, np.array(students)
+    return _lv1_data_cache, _students_cache
+
+
+def enumerate_sequences_labels(data):
+    """
+    enumerate all sequences from course-selections
+    for example, a sequence with time: 2->3->4->5
+    will be enumerated into 3 data, labels:
+    [2] -> 3
+    [2,3] -> 4
+    [2,3,4] -> 5
+    :param data: normalized data of course-selections
+    :return: enumerated data for training RNN (sequences, labels)
+    """
+    sequences = []
+    labels = []
+    progress = 0
+    for sequence in data:
+        selections = [selection for selection in sequence
+                      if np.any(selection)]  # filter off the selections with all zeros
+        for i in range(len(selections) - 1):
+            enumerated_seqs = [seq.tolist() for seq in selections[:i + 1]]
+            padded_seqs = padding_sequences(enumerated_seqs, MAX_TIME)
+            sequences.append(padded_seqs)
+            labels.append(selections[i + 1])
+
+        progress += 1
+        if progress % 50 == 0:
+            print(progress, ' sequences have been enumerated.')
+
+    return np.array(sequences), np.array(labels)
+
+
+def padding_sequences(sequences, max_seq):
+    n_padding = max_seq - len(sequences)
+    padding_seq = []
+    for t in range(n_padding):
+        padding_seq.append([0] * len(sequences[0]))
+    return padding_seq + sequences
 
 
 def load_lv2_data():
@@ -168,7 +242,7 @@ def translate_lv1_data_into_department_to_sequences(lv1_data):
             decoded in the way of LV1
     :return: department_to_sequences each sequence shows all course's names in each semester
     """
-    course_id_to_name = remain_taken_couses_by_students()
+    course_id_to_name = remain_taken_courses_from_id_to_name_dict(load_elective_course_id_to_name())
     _, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
     department_to_sequences = collections.defaultdict(lambda: collections.defaultdict(set))
     count_finished = 0
@@ -225,3 +299,42 @@ def find_outlier_students(students, cluster_labels, n_outlier_cluster=2):
                      if len(students) == min_cluster_size]:
         outlier_students.extend(students)
     return outlier_students
+
+
+def translate_lv1_data(data):
+    """
+    :param data: feature of lv1 data
+    :return: a tuple of (time, department's id, a list courses taken)
+    """
+    course_id_to_name = load_elective_course_id_to_name()
+    course_id_to_index, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
+
+    time = data[0]
+    department_id = data[1]
+    course_names = set()
+    for i in range(2, len(data)):
+        if data[i]:
+            course_id = index_to_course_id[i - 2]
+            course_name = course_id_to_name[course_id]
+            course_names.add(course_name)
+
+    return time, department_id, list(course_names)
+
+
+if __name__ == '__main__':
+    # test my class
+    ids = ['03360296', '03363611', '04362481']
+    department_id_to_name = load_department_id_to_department_name()
+    data, students = load_lv1_data_students()
+
+    for i in range(len(students)):
+        if students[i]['id'] in ids:
+            my_data, me = data[i], students[i]
+            print('Student: ', me['name'])
+            for d in [selection for selection in my_data if np.any(selection)]:
+                time, department_id, courses = translate_lv1_data(d)
+                print('Time: {}, Department: {}, Courses: {}'.format(time, department_id_to_name[str(department_id)],
+                                                                     courses))
+            ids.remove(students[i]['id'])
+        if len(ids) == 0:
+            break

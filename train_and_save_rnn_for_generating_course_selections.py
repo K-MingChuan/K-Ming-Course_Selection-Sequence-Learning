@@ -10,7 +10,6 @@ from keras.callbacks import ModelCheckpoint
 
 
 x, students = load_lv1_data()
-x = pad_sequences(x, maxlen=MAX_TIME, dtype='int32')
 
 print("X's shape: ", x.shape)
 '''

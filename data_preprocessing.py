@@ -142,7 +142,7 @@ def load_lv1_data_students():
         # add time, department in front of n of courses
         for time, time_index in time_to_index.items():
             data[student_index][time_index][0] = time
-            data[student_index][time_index][1] = department
+            data[student_index][time_index][1] = int(department)  # normalization
 
         for course in elective_courses:
             try:
@@ -202,8 +202,6 @@ def padding_sequences(sequences, max_seq):
     return padding_seq + sequences
 
 
-def load_lv2_data():
-    pass
 
 
 def load_department_id_to_department_name():
@@ -338,3 +336,32 @@ if __name__ == '__main__':
             ids.remove(students[i]['id'])
         if len(ids) == 0:
             break
+
+
+LV2_DEPARTMENT_ID_BIAS = 10000  # multiply the department's id by bias to avoid number conflict with courses
+
+
+def load_lv2_data():
+    """
+    :return: A list of features of each student used for finding frequent patterns in lv2
+    """
+    students = load_students(transferred=False)
+    elective_course_id_to_index, elective_index_to_course_id = load_elective_course_mapping_dicts()
+
+    data = []
+    for student in students:
+        features = set()
+        department_id = int(student['departmentNo']) * LV2_DEPARTMENT_ID_BIAS
+        elective_courses = [course for course in student['takenClassesRecords']
+                            if course['courseId'] in elective_course_id_to_index]
+
+        # add the department id so that the association btw dep and courses can be detected
+        features.add(department_id)
+
+        # enumerate all courses' id into the feature list
+        for course in elective_courses:
+            course_id = course['courseId']
+            features.add(elective_course_id_to_index[course_id])
+
+        data.append(list(features))
+    return data

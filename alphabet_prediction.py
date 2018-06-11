@@ -36,7 +36,7 @@ model = Sequential()
 model.add(LSTM(35, input_shape=(X.shape[1], 1)))
 model.add(Dense(1))
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
-model.fit(X, y, epochs=200, batch_size=batch_size, verbose=2)
+model.fit(X, y, epochs=20, batch_size=batch_size, verbose=2)
 # summarize performance of the model
 scores = model.evaluate(X, y, verbose=0)
 print("Model Accuracy: %.2f%%" % (scores[1] * 100))

@@ -1,5 +1,5 @@
 from data_preprocessing import *
-from train_and_save_rnn_for_generating_course_selections import create_and_compile_model
+from lv1_training_rnn import create_and_compile_model
 
 
 test_student_ids = ['03360296', '04362481', '03363611']
@@ -9,7 +9,7 @@ course_id_to_index, course_index_to_id = load_elective_course_mapping_dicts()
 department_id_to_name = load_department_id_to_department_name()
 sequences, labels = enumerate_sequences_labels(data)
 
-model = create_and_compile_model(sequences, weight_file_name='model_weights_e150_b30.hdf5')
+model = create_and_compile_model(sequences, weight_file_name='model_weights_e10_b1.hdf5')
 
 for i in range(len(students)):
     student = students[i]

@@ -18,6 +18,7 @@ _lv1_data_cache = None
 _students_cache = None
 
 
+
 def load_elective_course_mapping_dicts(course_id_to_name=None):
     """
     :return: two dicts: (1) course_id_to_index (2) index_to_course_id
@@ -43,29 +44,41 @@ def load_elective_course_mapping_dicts(course_id_to_name=None):
     return _elective_course_id_to_index_cache, _elective_course_index_to_id_cache
 
 
+def load_elective_courses():
+    filenames = ['courses/courses_new_103_1.json', 'courses/courses_new_103_2.json',
+                 'courses/courses_new_104_1.json', 'courses/courses_new_104_2.json',
+                 'courses/courses_new_105_1.json', 'courses/courses_new_105_2.json',
+                 'courses/courses_new_106_1.json', 'courses/courses_new_106_2.json']
+
+    course_names = set()
+    courses = []
+    for filename in filenames:
+        print('Loading elective courses from {}...'.format(filename))
+        with open(filename, 'r', encoding='utf-8') as fr:
+            for course in json.load(fr):
+                if course['type'] in {4, 5}:
+                    if course['name'] not in course_names:
+                        courses.append(course)
+                        course_names.add(course['name'])
+
+            print('Elective courses loaded, count: ', len(courses))
+            return courses
+
+
 def load_elective_course_id_to_name():
     global _elective_course_id_to_name_cache
     if _elective_course_id_to_name_cache:
         return _elective_course_id_to_name_cache
 
-    filenames = ['courses/courses_new_103_1.json', 'courses/courses_new_103_2.json',
-                 'courses/courses_new_104_1.json', 'courses/courses_new_104_2.json',
-                 'courses/courses_new_105_1.json', 'courses/courses_new_105_2.json',
-                 'courses/courses_new_106_1.json', 'courses/courses_new_106_2.json']
     course_id_to_name = {}
 
-    for filename in filenames:
-        print('Loading elective courses from {}...'.format(filename))
-        with open(filename, 'r', encoding='utf-8') as fr:
-            elective_courses = [course for course in json.load(fr)
-                                if course['type'] in {ELECTIVE_TYPE, GENERAL_TYPE}]
-            for course in elective_courses:
-                course_id_to_name[course['courseId']] = course['name']
+    for course in load_elective_courses():
+        course_id_to_name[course['courseId']] = course['name']
 
     if not _elective_course_id_to_name_cache:
         _elective_course_id_to_name_cache = course_id_to_name
 
-    print('Elective courses loaded.')
+    print('Elective courses to id dict loaded.')
     return _elective_course_id_to_name_cache
 
 
@@ -202,8 +215,6 @@ def padding_sequences(sequences, max_seq):
     return padding_seq + sequences
 
 
-
-
 def load_department_id_to_department_name():
     with open('department.json', 'r', encoding='utf-8') as fr:
         return json.load(fr)
@@ -338,10 +349,7 @@ if __name__ == '__main__':
             break
 
 
-LV2_DEPARTMENT_ID_BIAS = 10000  # multiply the department's id by bias to avoid number conflict with courses
-
-
-def load_lv2_data():
+def load_lv2_data(specified_department_id=None):
     """
     :return: A list of features of each student used for finding frequent patterns in lv2
     """
@@ -351,7 +359,9 @@ def load_lv2_data():
     data = []
     for student in students:
         features = set()
-        department_id = int(student['departmentNo']) * LV2_DEPARTMENT_ID_BIAS
+        department_id = student['departmentNo']
+        if specified_department_id and specified_department_id != department_id:
+            continue
         elective_courses = [course for course in student['takenClassesRecords']
                             if course['courseId'] in elective_course_id_to_index]
 
@@ -365,3 +375,21 @@ def load_lv2_data():
 
         data.append(list(features))
     return data
+
+
+def translate_lv2_frequent_pattern(frequent_pattern):
+    """
+    :return: department_name, course_names (list)
+    """
+    assert isinstance(frequent_pattern, list)
+    department_id_to_name = load_department_id_to_department_name()
+    department_id = [e for e in frequent_pattern
+                     if e in department_id_to_name]
+    department_name = department_id_to_name[department_id[0]] if len(department_id) != 0 else 'None'
+
+    course_id_to_name = load_elective_course_id_to_name()
+    _, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
+
+    course_names = [course_id_to_name[index_to_course_id[index]] for index in frequent_pattern
+                    if isinstance(index, int)]
+    return department_name, course_names

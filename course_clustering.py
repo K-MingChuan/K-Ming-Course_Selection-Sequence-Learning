@@ -10,15 +10,7 @@ def get_word_frequency_vectors(course_texts):
 
 
 def get_word_model_vectors(course_texts):
-    data = []
-    word_model = get_word2vec_model()
-    for text in course_texts:
-        wv = np.zeros(250)
-        for word in jiebas.jieba_utils.cut(text):
-            if word in word_model.wv:
-                wv += word_model.wv[word]
-        data.append(wv)
-    return np.array(data)
+    return words_preprocessing_utils.get_word_model_vectors(course_texts)
 
 
 if __name__ == '__main__':
@@ -31,8 +23,9 @@ if __name__ == '__main__':
 
     data = get_word_model_vectors(course_texts)
 
+    n_clusters = 50
     print('Kmeans clustering started...')
-    kmeans_fit = KMeans(n_clusters=35).fit(data)
+    kmeans_fit = KMeans(n_clusters=n_clusters).fit(data)
     print('Kmeans clustering finished.')
 
     labels = [str(n) for n in list(kmeans_fit.labels_)]
@@ -43,5 +36,6 @@ if __name__ == '__main__':
     for cluster, courses in cluster_to_courses.items():
         print('Cluster : ', cluster, ', Count: ', len(courses), ' Courses: ',  courses)
 
-    with open('course_clusters.json', 'w', encoding='utf-8') as fw:
-        json.dump(cluster_to_courses, fw, ensure_ascii=False)
+    with open('course_clusters_' + str(n_clusters) + '.txt', 'w', encoding='utf-8') as fw:
+        for cluster, courses in cluster_to_courses.items():
+            fw.write(','.join(courses) + '\n')

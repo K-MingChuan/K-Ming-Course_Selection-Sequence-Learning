@@ -1,5 +1,8 @@
+import jiebas
 from jiebas import jieba_utils
 import numpy as np
+
+from word_vector_utils import get_word2vec_model, get_word_vector_size
 
 
 def get_word_frequency_vectors(samples, cut_all=False):
@@ -26,6 +29,18 @@ def get_word_frequency_vectors(samples, cut_all=False):
 
     print('Word frequency vectors loaded.')
     return data, wordset, word_to_index
+
+
+def get_word_model_vectors(course_texts):
+    data = []
+    word_model = get_word2vec_model()
+    for text in course_texts:
+        wv = np.zeros(get_word_vector_size())
+        for word in jiebas.jieba_utils.cut(text):
+            if word in word_model.wv:
+                wv += word_model.wv[word]
+        data.append(wv)
+    return np.array(data)
 
 
 if __name__ == '__main__':

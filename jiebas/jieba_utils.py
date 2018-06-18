@@ -8,12 +8,12 @@ puncts = set(u''':!),.:;?]}¢'"、。〉》」』】〕〗〞︰︱︳﹐､﹒
 
 stop_wordset = puncts
 
-print("Preparing jiebas utils...")
+print("Preparing jiebas algorithms...")
 
 jieba_dictionary_name = 'jiebas/dict.txt.big'
 jieba.set_dictionary(jieba_dictionary_name)
 
-print("Preparing jiebas utils...")
+print("Preparing jiebas algorithms...")
 
 with open('jiebas/stop_words.txt', 'r', encoding='utf-8') as f:
     for stop_word in f:

@@ -1,6 +1,6 @@
 # LSTM with Variable Length Input Sequences to One Character Output
 import numpy
-from keras.models import Sequential
+from keras.models import Sequential, save_model, load_model
 from keras.layers import Dense
 from keras.layers import LSTM
 from keras.utils import np_utils
@@ -14,7 +14,7 @@ alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 char_to_int = dict((c, i) for i, c in enumerate(alphabet))
 int_to_char = dict((i, c) for i, c in enumerate(alphabet))
 # prepare the dataset of input to output pairs encoded as integers
-num_inputs = 50
+num_inputs = 500
 max_len = 5
 dataX = []
 dataY = []
@@ -36,10 +36,14 @@ model = Sequential()
 model.add(LSTM(35, input_shape=(X.shape[1], 1)))
 model.add(Dense(1))
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
-model.fit(X, y, epochs=20, batch_size=batch_size, verbose=2)
+model.fit(X, y, epochs=40, batch_size=batch_size, verbose=2)
 # summarize performance of the model
 scores = model.evaluate(X, y, verbose=0)
 print("Model Accuracy: %.2f%%" % (scores[1] * 100))
+
+save_model(model, 'save_alphabet.hdf5')
+model = load_model('save_alphabet.hdf5')
+model.summary()
 # demonstrate some model predictions
 for i in range(20):
     pattern_index = numpy.random.randint(len(dataX))

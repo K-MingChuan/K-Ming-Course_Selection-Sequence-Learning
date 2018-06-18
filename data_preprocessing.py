@@ -4,6 +4,7 @@ import operator
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
+from collections import namedtuple
 
 MAX_TIME = 7  # student can only have at most 12 semesters (6 grades)
 _GRADE_BASE_YEAR = 103
@@ -377,8 +378,27 @@ def load_lv2_data(specified_department_id=None):
 
 def load_lv4_data():
     """
-    :return:
+    :return: return a list of CourseCluster namedtuple, each one
+        contains: index, course_names
     """
+    CourseCluster = namedtuple('CourseCluster', 'index course_names')
+    with open('lv4_course_clusters.txt', 'r', encoding='utf-8') as file:
+        lines = []
+        for line in file.readlines():
+            line = line.strip()
+            if len(line) > 0:
+                lines.append(line)
+
+    clusters = []
+    for line in lines:
+        cluster_id, courses_str = line.split(':')
+        courses = courses_str.split(',')
+        for id, course in enumerate(courses):
+            courses[id] = course.strip()
+        # print(cluster_id, courses)
+        clusters.append(CourseCluster(cluster_id, courses))
+
+    return clusters
 
 def translate_lv2_frequent_pattern(frequent_pattern):
     """

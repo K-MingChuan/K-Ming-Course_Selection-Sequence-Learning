@@ -1,5 +1,6 @@
 import collections
 import json
+import operator
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
@@ -14,12 +15,29 @@ _elective_course_id_to_name_cache = None
 _elective_course_id_to_index_cache = None
 _elective_course_index_to_id_cache = None
 
-_lv1_data_cache = None
-_students_cache = None
+
+def load_students_by_id(list_of_id):
+    """
+    :param list_of_id: e.g. ['03361234', '04361234'] a list of students' id
+    :return: students of the ids owner
+    """
+    students = load_students()
+    return [s for s in students if s['id'] in list_of_id]
 
 
+def load_students_course_set(list_of_id):
+    """
+    :param list_of_id: e.g. ['03361234', '04361234'] a list of students' id
+    :return: a dict its key is the student's id with the value his course set
+    """
+    students = load_students_by_id(list_of_id)
+    id_to_courses = {}
+    for student in students:
+        id_to_courses[student['id']] = student['takenClassesRecords']
+    return id_to_courses
 
-def load_elective_course_mapping_dicts(course_id_to_name=None):
+
+def load_elective_course_mapping_id_index(course_id_to_name=None):
     """
     :return: two dicts: (1) course_id_to_index (2) index_to_course_id
     """
@@ -56,13 +74,20 @@ def load_elective_courses():
         print('Loading elective courses from {}...'.format(filename))
         with open(filename, 'r', encoding='utf-8') as fr:
             for course in json.load(fr):
-                if course['type'] in {4, 5}:
+                if course['type'] in {ELECTIVE_TYPE, GENERAL_TYPE}:
                     if course['name'] not in course_names:
                         courses.append(course)
                         course_names.add(course['name'])
 
             print('Elective courses loaded, count: ', len(courses))
             return courses
+
+
+def load_elective_course_mapping_name_index():
+    with open('course_names.txt', 'r', encoding='utf-8') as fr:
+        course_names = [line.strip() for line in fr.readlines() if len(line.strip()) != 0]
+        return dict((name, index) for index, name in enumerate(course_names)),\
+                dict((index, name) for index, name in enumerate(course_names))
 
 
 def load_elective_course_id_to_name():
@@ -108,26 +133,25 @@ def get_course_time(course):
     return grade * 2 + semester
 
 
-def load_students(transferred=False):
+def load_students(transferred=False, department_id=None):
     """
     :return: narrays of all students
     """
     print('Loading students...')
     with open('students.json', 'r', encoding='utf-8') as fr:
-        return [student for student in json.load(fr) if student['tansfer'] == transferred]
+        return [student for student in json.load(fr) if student['tansfer'] == transferred
+                and not department_id or student['departmentNo'] == department_id]
 
 
 def load_lv1_data_students():
     """
     :return: narrays of (data, all non-transferred students)
     """
-    global _lv1_data_cache, _students_cache
-    if _lv1_data_cache and _students_cache:
-        return _lv1_data_cache, _students_cache
 
     students = load_students(transferred=False)
-    elective_course_id_to_index, _ = load_elective_course_mapping_dicts()
-    elective_course_size = len(elective_course_id_to_index)
+    elective_course_name_to_index, _ = load_elective_course_mapping_name_index()
+    elective_course_size = len(elective_course_name_to_index)
+    print('Index of 程式設計 (一): ', elective_course_name_to_index['程式設計 (一)'])
 
     # for each student, provide a sequence of course-selection,
     # where the index of this sequence refers to the time of semesters
@@ -140,7 +164,7 @@ def load_lv1_data_students():
         student = students[student_index]
         department = student['departmentNo']
         elective_courses = [course for course in student['takenClassesRecords']
-                            if course['courseId'] in elective_course_id_to_index]
+                            if course['courseName'] in elective_course_name_to_index]
 
         # count how many time steps does the student have
         time_set = set()
@@ -161,7 +185,7 @@ def load_lv1_data_students():
             try:
                 time = get_course_time(course)
                 time_index = time_to_index[time]
-                course_index = elective_course_id_to_index[course['courseId']] + 2
+                course_index = elective_course_name_to_index[course['courseName']] + 2
                 data[student_index][time_index][course_index] += 1
             except Exception as e:
                 print(e)
@@ -169,12 +193,8 @@ def load_lv1_data_students():
         if student_index % 100 == 0:
             print(student_index, " students done.")
 
-    if not _lv1_data_cache:
-        _lv1_data_cache = data
-    if not _students_cache:
-        _students_cache = np.array(students)
     print('LV1 Data loaded.')
-    return _lv1_data_cache, _students_cache
+    return data, np.array(students)
 
 
 def enumerate_sequences_labels(data):
@@ -252,7 +272,7 @@ def translate_lv1_data_into_department_to_sequences(lv1_data):
     :return: department_to_sequences each sequence shows all course's names in each semester
     """
     course_id_to_name = remain_taken_courses_from_id_to_name_dict(load_elective_course_id_to_name())
-    _, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
+    _, index_to_course_id = load_elective_course_mapping_id_index(course_id_to_name=course_id_to_name)
     department_to_sequences = collections.defaultdict(lambda: collections.defaultdict(set))
     count_finished = 0
     for records in lv1_data:
@@ -315,38 +335,17 @@ def translate_lv1_data(data):
     :param data: feature of lv1 data
     :return: a tuple of (time, department's id, a list courses taken)
     """
-    course_id_to_name = load_elective_course_id_to_name()
-    course_id_to_index, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
+    name_to_index, index_to_name = load_elective_course_mapping_name_index()
 
     time = data[0]
     department_id = data[1]
     course_names = set()
     for i in range(2, len(data)):
         if data[i]:
-            course_id = index_to_course_id[i - 2]
-            course_name = course_id_to_name[course_id]
+            course_name = index_to_name[i - 2]
             course_names.add(course_name)
 
-    return time, department_id, list(course_names)
-
-
-if __name__ == '__main__':
-    # test my class
-    ids = ['03360296', '03363611', '04362481']
-    department_id_to_name = load_department_id_to_department_name()
-    data, students = load_lv1_data_students()
-
-    for i in range(len(students)):
-        if students[i]['id'] in ids:
-            my_data, me = data[i], students[i]
-            print('Student: ', me['name'])
-            for d in [selection for selection in my_data if np.any(selection)]:
-                time, department_id, courses = translate_lv1_data(d)
-                print('Time: {}, Department: {}, Courses: {}'.format(time, department_id_to_name[str(department_id)],
-                                                                     courses))
-            ids.remove(students[i]['id'])
-        if len(ids) == 0:
-            break
+    return round(time), str(round(department_id)), list(course_names)
 
 
 def load_lv2_data(specified_department_id=None):
@@ -354,7 +353,7 @@ def load_lv2_data(specified_department_id=None):
     :return: A list of features of each student used for finding frequent patterns in lv2
     """
     students = load_students(transferred=False)
-    elective_course_id_to_index, elective_index_to_course_id = load_elective_course_mapping_dicts()
+    elective_course_id_to_index, elective_index_to_course_id = load_elective_course_mapping_id_index()
 
     data = []
     for student in students:
@@ -385,11 +384,68 @@ def translate_lv2_frequent_pattern(frequent_pattern):
     department_id_to_name = load_department_id_to_department_name()
     department_id = [e for e in frequent_pattern
                      if e in department_id_to_name]
-    department_name = department_id_to_name[department_id[0]] if len(department_id) != 0 else 'None'
+    department_name = department_id_to_name[department_id[0]] if len(department_id) != 0 else None
 
     course_id_to_name = load_elective_course_id_to_name()
-    _, index_to_course_id = load_elective_course_mapping_dicts(course_id_to_name=course_id_to_name)
+    _, index_to_course_id = load_elective_course_mapping_id_index(course_id_to_name=course_id_to_name)
 
     course_names = [course_id_to_name[index_to_course_id[index]] for index in frequent_pattern
                     if isinstance(index, int)]
     return department_name, course_names
+
+
+def load_lv2_frequent_patterns(filename):
+    """
+    :param filename: the txt file's name of where all patterns save in each line
+    :return: a dict its key is the department's name and the value is the department's frequent course-selection patterns
+    """
+    with open(filename, 'r', encoding='utf-8') as fr:
+        dep_to_patterns = collections.defaultdict(list)
+        for line in fr.readlines():
+            splits = line.strip().split(',')
+            dep_name = splits[0]
+            courses = splits[1:-1:1]
+            support = splits[-1]
+            dep_to_patterns[dep_name].append({"support": support, "courses": set(courses)})
+
+    return dep_to_patterns
+
+
+def load_lv3_data():
+    data = []
+    students = load_students(transferred=False, department_id='36')
+    id_to_name = load_elective_course_id_to_name()
+    for student in students:
+        student_sequence = []
+        time_to_course_names = collections.defaultdict(list)
+        for course in student['takenClassesRecords']:
+            if course['courseId'] in id_to_name:
+                time = get_course_time(course)
+                time_to_course_names[time].append(course['courseName'])
+        sorted_time_courses = sorted(time_to_course_names.items(), key=operator.itemgetter(0))
+        for time, courses in sorted_time_courses:
+            student_sequence.append(courses)
+        data.append([c for c in student_sequence if len(c) != 0])
+
+        if len(data) % 100 == 0:
+            print(len(data), 'Students finished.')
+    return [d for d in data if len(d) != 0]
+
+
+if __name__ == '__main__':
+    # test my class
+    ids = ['03360296', '03363611', '04362481']
+    department_id_to_name = load_department_id_to_department_name()
+    data, students = load_lv1_data_students()
+
+    for i in range(len(students)):
+        if students[i]['id'] in ids:
+            my_data, me = data[i], students[i]
+            print('Student: ', me['name'])
+            for d in [selection for selection in my_data if np.any(selection)]:
+                time, department_id, courses = translate_lv1_data(d)
+                print('Time: {}, Department: {}, Courses: {}'.format(time, department_id_to_name[str(department_id)],
+                                                                     courses))
+            ids.remove(students[i]['id'])
+        if len(ids) == 0:
+            break

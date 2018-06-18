@@ -1,11 +1,10 @@
 import json
-
+from data_preprocessing import *
 import numpy
 
 if __name__ == '__main__':
-    a = numpy.random.randint(0, 100, size=10)
-    print(a)
-    print(sorted(enumerate(a), key=lambda t: t[1]))
-    b = sorted(enumerate(a), key=lambda t: t[1])
-    a[[index for index, val in b[0:3]]] = 100
-    print(a)
+    with open('lv1_training.json', 'r', encoding='utf-8') as fr:
+        raw = json.load(fr)
+        sequences = raw['data']
+        labels = raw['labels']
+        print(len(sequences), len(labels))

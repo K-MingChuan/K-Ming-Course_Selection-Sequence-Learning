@@ -18,8 +18,8 @@ if __name__ == '__main__':
 
     course_texts = []
     for course in courses:
-        course_texts.append(course['name'] * 3 + course['classGoal'] + course['outline'] + course['effect'] + \
-                           course['departmentGoal'] + course['reference'])
+        course_texts.append(course['name']*7 + course['classGoal']*4 + course['outline']*5 + course['effect']*7 + \
+                           course['departmentGoal']*0 + course['reference']*0)
 
     data = get_word_model_vectors(course_texts)
 

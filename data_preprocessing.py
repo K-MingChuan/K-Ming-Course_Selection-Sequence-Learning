@@ -378,11 +378,22 @@ def load_lv2_data(specified_department_id=None):
 
 def load_lv4_data():
     """
-    :return: return a list of CourseCluster namedtuple, each one
-        contains: index, course_names
+    :return: Part1, Part2
     """
+    # Part1: Read taken course names of each student
+    taken_course_names_of_students = []
+    with open('students.json', 'r', encoding='utf-8') as jsonfile:
+        student_records = json.load(jsonfile)
+
+    for student_record in student_records:
+        taken_course_names = []
+        for course_record in student_record['takenClassesRecords']:
+            taken_course_names.append(course_record['courseName'])
+        taken_course_names_of_students.append(taken_course_names)
+
+    # Part2: Read clusters
     CourseCluster = namedtuple('CourseCluster', 'index course_names')
-    with open('lv4_course_clusters.pattern', 'r', encoding='utf-8') as file:
+    with open('lv4_courses_clusters.pattern', 'r', encoding='utf-8') as file:
         lines = []
         for line in file.readlines():
             line = line.strip()
@@ -398,7 +409,7 @@ def load_lv4_data():
         # print(cluster_id, courses)
         clusters.append(CourseCluster(cluster_id, courses))
 
-    return clusters
+    return taken_course_names_of_students, clusters
 
 def translate_lv2_frequent_pattern(frequent_pattern):
     """

@@ -29,6 +29,7 @@ if __name__ == '__main__':
     print('Kmeans clustering finished.')
 
     labels = [str(n) for n in list(kmeans_fit.labels_)]
+    print(labels)
     cluster_to_courses = collections.defaultdict(list)
     for i in range(len(labels)):
         cluster_to_courses[labels[i]].append(courses[i]['name'])

@@ -376,6 +376,10 @@ def load_lv2_data(specified_department_id=None):
         data.append(list(features))
     return data
 
+def load_lv4_data():
+    """
+    :return:
+    """
 
 def translate_lv2_frequent_pattern(frequent_pattern):
     """

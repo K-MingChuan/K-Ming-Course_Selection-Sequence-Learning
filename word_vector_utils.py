@@ -19,7 +19,7 @@ def get_word2vec_model():
     global my_model
     if not my_model:
         print("Loading word2vec model...")
-        my_model = word2vec.Word2Vec.load("D:/NativeGit/K-Ming-Course-Reviewer/word2vec/word2vec.model")
+        my_model = word2vec.Word2Vec.load("./word2vec.model")
         print("Loading word2vec model loaded.")
     return my_model
 

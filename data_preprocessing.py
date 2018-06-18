@@ -382,7 +382,7 @@ def load_lv4_data():
         contains: index, course_names
     """
     CourseCluster = namedtuple('CourseCluster', 'index course_names')
-    with open('lv4_course_clusters.txt', 'r', encoding='utf-8') as file:
+    with open('lv4_course_clusters.pattern', 'r', encoding='utf-8') as file:
         lines = []
         for line in file.readlines():
             line = line.strip()

@@ -5,23 +5,33 @@ from algorithms.fp_growth import find_frequent_itemsets
 
 if __name__ == '__main__':
     """
-    input: student_id
-    output: courses_recommendation_list, each course is an object
+    input: 
+    output:
     """
 
-    # 先讀取: 1. 所有學生的修課名稱資料 2. clusters 的資料
-    student_records, courses_clusters = load_lv4_data()
+    taken_course_names_of_students, clusters = load_lv4_data()
 
-    # 遍歷每個學生的 record 再核對修的課出現在那些群，轉換後存成 list
-    student_clusters_records = []
+    # Convert taken_course_names of each student to cluster index
+    cluster_idxs_records = []
 
-    for student_record in student_records:
-        pass
+    for taken_course_names in taken_course_names_of_students:
+        cluster_idxs_record = []
+        for course_name in taken_course_names:
+            idx = None
+            for cluster in clusters:
+                if course_name in cluster.course_names:
+                    idx = cluster.index
+                    break
+            if idx is None:
+                print('Error: Course {} not found in all clusters.'.format(course_name))
+            cluster_idxs_record.append(idx)
+        cluster_idxs_records.append(cluster_idxs_record)
 
     # 套用Fp-growth，研究一下support要多少
-    support = None
-    cluster_patterns = list(find_frequent_itemsets(student_clusters_records,
-                                                    include_support=True, minimum_support=support))
+    print('Start doing fp-growth...')
+    support = 100
+    cluster_patterns = list(find_frequent_itemsets(cluster_idxs_records,
+                                                   include_support=True, minimum_support=support))
 
     # 結果已經是sorted所以不用再排序
     print(cluster_patterns)
@@ -29,8 +39,8 @@ if __name__ == '__main__':
 
     # for pattern, support in course_selection_patterns:
     #     if len(pattern) >= 3:
-    #         department_name, course_names = translate_lv2_frequent_pattern(pattern)
+    #         department_name, taken_course_names = translate_lv2_frequent_pattern(pattern)
     #         if department_name:
-    #             log = '{},{},{}'.format(department_name, ','.join(course_names), support)
+    #             log = '{},{},{}'.format(department_name, ','.join(taken_course_names), support)
     #             print(log)
 

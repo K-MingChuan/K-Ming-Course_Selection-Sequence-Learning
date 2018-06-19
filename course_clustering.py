@@ -18,18 +18,19 @@ if __name__ == '__main__':
 
     course_texts = []
     for course in courses:
-        course_texts.append(course['name']*7 + course['classGoal']*4 + course['outline']*5 + course['effect']*7 + \
+        # 7457
+        course_texts.append(course['name']*4 + course['classGoal']*2 + course['outline']*1 + course['effect']*1 + \
                            course['departmentGoal']*0 + course['reference']*0)
+
 
     data = get_word_model_vectors(course_texts)
 
-    n_clusters = 50
+    n_clusters = 70
     print('Kmeans clustering started...')
     kmeans_fit = KMeans(n_clusters=n_clusters).fit(data)
     print('Kmeans clustering finished.')
 
     labels = [str(n) for n in list(kmeans_fit.labels_)]
-    print(labels)
     cluster_to_courses = collections.defaultdict(list)
     for i in range(len(labels)):
         cluster_to_courses[labels[i]].append(courses[i]['name'])

@@ -80,12 +80,12 @@ def load_elective_courses():
                         courses.append(course)
                         course_names.add(course['name'])
 
-            print('Elective courses loaded, count: ', len(courses))
-            return courses
+    print('Elective courses loaded, count: ', len(courses))
+    return courses
 
 
 def load_elective_course_mapping_name_index():
-    with open('course_names.txt', 'r', encoding='utf-8') as fr:
+    with open('taken_course_names.txt', 'r', encoding='utf-8') as fr:
         course_names = [line.strip() for line in fr.readlines() if len(line.strip()) != 0]
         return dict((name, index) for index, name in enumerate(course_names)),\
                 dict((index, name) for index, name in enumerate(course_names))
@@ -381,6 +381,11 @@ def load_lv4_data():
     :return: Part1, Part2
     """
     # Part1: Read taken course names of each student
+    elec_courses = load_elective_courses()
+    elec_course_names = set()
+    for elec_course in elec_courses:
+        elec_course_names.add(elec_course['name'])
+
     taken_course_names_of_students = []
     with open('students.json', 'r', encoding='utf-8') as jsonfile:
         student_records = json.load(jsonfile)
@@ -388,7 +393,8 @@ def load_lv4_data():
     for student_record in student_records:
         taken_course_names = []
         for course_record in student_record['takenClassesRecords']:
-            taken_course_names.append(course_record['courseName'])
+            if course_record['courseName'] in elec_course_names:
+                taken_course_names.append(course_record['courseName'])
         taken_course_names_of_students.append(taken_course_names)
 
     # Part2: Read clusters
@@ -403,17 +409,14 @@ def load_lv4_data():
     clusters = []
     for line in lines:
         cluster_id, courses_str = line.split(':')
-        courses = courses_str.split(',')
-        for id, course in enumerate(courses):
-            courses[id] = course.strip()
-        # print(cluster_id, courses)
+        courses = set(courses_str.split(','))
         clusters.append(CourseCluster(cluster_id, courses))
 
     return taken_course_names_of_students, clusters
 
 def translate_lv2_frequent_pattern(frequent_pattern):
     """
-    :return: department_name, course_names (list)
+    :return: department_name, taken_course_names (list)
     """
     assert isinstance(frequent_pattern, list)
     department_id_to_name = load_department_id_to_department_name()

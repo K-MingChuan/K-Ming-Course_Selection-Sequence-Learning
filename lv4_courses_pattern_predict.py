@@ -1,4 +1,4 @@
-from data_preprocessing import load_lv4_data, load_lv4_cluster_idxs_records
+from data_preprocessing import load_lv4_data, build_lv4_cluster_idxs_records
 
 test_student_ids = ['05090432', '06090130', '04350090',
                     '05170304', '06210695', '06360966',
@@ -12,7 +12,7 @@ test_student_ids = ['05090432', '06090130', '04350090',
 
 taken_course_names_of_students, clusters = load_lv4_data()
 cluster_idxs_records = \
-    load_lv4_cluster_idxs_records(taken_course_names_of_students, clusters)
+    build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters)
 
 
 # dep_to_patterns = load_lv2_frequent_patterns('course_selection_patterns_all.txt')

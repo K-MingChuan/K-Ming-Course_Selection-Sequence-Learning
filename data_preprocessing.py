@@ -5,6 +5,7 @@ import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
 from collections import namedtuple
+from algorithms.fp_growth import find_frequent_itemsets
 
 MAX_TIME = 7  # student can only have at most 12 semesters (6 grades)
 _GRADE_BASE_YEAR = 103
@@ -16,6 +17,7 @@ _elective_course_id_to_name_cache = None
 _elective_course_id_to_index_cache = None
 _elective_course_index_to_id_cache = None
 
+_cluster_idxs_records_cache = None
 
 def load_students_by_id(list_of_id):
     """
@@ -469,7 +471,7 @@ def load_lv4_data():
 
     return taken_course_names_of_students, clusters
 
-def load_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
+def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
     """
     Convert taken_course_names of each student to cluster index.
 
@@ -492,7 +494,36 @@ def load_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
                 print('Error: Course {} not found in all clusters.'.format(course_name))
             cluster_idxs_record.append(idx)
         cluster_idxs_records.append(cluster_idxs_record)
+
+    global _cluster_idxs_records_cache
+    _cluster_idxs_records_cache = cluster_idxs_records.copy()
+
     return cluster_idxs_records
+
+def compute_lv4_frequent_patterns(support=15000, rebuild=False):
+    """
+    :param support: Minimup support applied to FP Growth
+    :param rebuild: Should be True if students.json
+                    or lv4_courses_clusters.pattern is updated
+    :return: Course cluster frequent patterns
+    """
+    global _cluster_idxs_records_cache
+    if not rebuild and _cluster_idxs_records_cache:
+        print('Found cluster indexes records of students cache.')
+    else:
+        print('Building cluster indexes records of students...')
+        build_lv4_cluster_idxs_records(*load_lv4_data())
+
+    print('Computing fp-growth with minsup:{} ...'.format(support))
+    # If the support is too low (<1000), then it will take about 10 mins.
+    cluster_patterns = \
+        list(find_frequent_itemsets(_cluster_idxs_records_cache,
+                                    include_support=True,
+                                    minimum_support=support))
+    # We're interested in patterns in descending support, to recommend courses in
+    #   the mainstream course-cluster.
+    cluster_patterns.sort(reverse=True, key=lambda item: item[1])
+    return cluster_patterns
 
 if __name__ == '__main__':
     # test my class

@@ -18,6 +18,7 @@ _elective_course_id_to_index_cache = None
 _elective_course_index_to_id_cache = None
 
 _cluster_idxs_records_cache = None
+_elective_course_names = None
 
 def load_students_by_id(list_of_id):
     """
@@ -433,28 +434,51 @@ def load_lv3_data():
             print(len(data), 'Students finished.')
     return [d for d in data if len(d) != 0]
 
-def load_lv4_data():
-    """
-    :return: Part1, Part2
-    """
-    # Part1: Read taken course names of each student
-    elec_courses = load_elective_courses()
-    elec_course_names = set()
-    for elec_course in elec_courses:
-        elec_course_names.add(elec_course['name'])
+def load_lv4_elective_course_names_set():
+    global _elective_course_names
+    if _elective_course_names:
+        return _elective_course_names
+    elective_courses = load_elective_courses()
+    elective_course_names = set()
+    for elective_course in elective_courses:
+        elective_course_names.add(elective_course['name'])
+    _elective_course_names = elective_course_names
+    return elective_course_names
 
+def student_ids_to_course_names_converter(student_ids, only_elective=False):
+    """
+    :param student_ids: A list of student ids.
+    :param only_elective: No required courses if True
+    :return: A list of course names corresponding to each student.
+    """
     taken_course_names_of_students = []
+
     with open('students.json', 'r', encoding='utf-8') as jsonfile:
         student_records = json.load(jsonfile)
 
-    for student_record in student_records:
-        taken_course_names = []
-        for course_record in student_record['takenClassesRecords']:
-            if course_record['courseName'] in elec_course_names:
-                taken_course_names.append(course_record['courseName'])
-        taken_course_names_of_students.append(taken_course_names)
+    if only_elective:
+        elective_course_names = load_lv4_elective_course_names_set()
 
-    # Part2: Read clusters
+        for student_id in student_ids:
+            for student_record in student_records:
+                if not student_id == student_record['id']: continue
+                taken_course_names = []
+                for course_record in student_record['takenClassesRecords']:
+                    if course_record['courseName'] in elective_course_names:
+                        taken_course_names.append(course_record['courseName'])
+                taken_course_names_of_students.append(taken_course_names)
+    else:
+        for student_id in student_ids:
+            for student_record in student_records:
+                if not student_id == student_record['id']: continue
+                taken_course_names = []
+                for course_record in student_record['takenClassesRecords']:
+                    taken_course_names.append(course_record['courseName'])
+                taken_course_names_of_students.append(taken_course_names)
+
+    return taken_course_names_of_students
+
+def load_lv4_clusters():
     CourseCluster = namedtuple('CourseCluster', 'index course_names')
     with open('lv4_courses_clusters.pattern', 'r', encoding='utf-8') as file:
         lines = []
@@ -469,17 +493,46 @@ def load_lv4_data():
         courses = set(courses_str.split(','))
         clusters.append(CourseCluster(cluster_id, courses))
 
-    return taken_course_names_of_students, clusters
+    return clusters
 
-def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
+def load_lv4_taken_course_names_of_all_students(only_elective=False):
     """
-    Convert taken_course_names of each student to cluster index.
+    :param only_elective: Concern only elective courses, no required courses.
+    :return: The names of courses taken by each student, as a list.
+    """
+    with open('students.json', 'r', encoding='utf-8') as jsonfile:
+        student_records = json.load(jsonfile)
 
-    :param taken_course_names_of_students: A list of taken course names(list).
+    taken_course_names_of_all_students = []
+
+    if only_elective:
+        elective_course_names = load_lv4_elective_course_names_set()
+
+        for student_record in student_records:
+            taken_course_names = []
+            for course_record in student_record['takenClassesRecords']:
+                if course_record['courseName'] in elective_course_names:
+                    taken_course_names.append(course_record['courseName'])
+            taken_course_names_of_all_students.append(taken_course_names)
+    else:
+        for student_record in student_records:
+            taken_course_names = []
+            for course_record in student_record['takenClassesRecords']:
+                taken_course_names.append(course_record['courseName'])
+            taken_course_names_of_all_students.append(taken_course_names)
+
+    return taken_course_names_of_all_students
+
+def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters=None, cached=False):
+    """
+    :param taken_course_names_of_students: A list of taken course names.
     :param clusters: A list of Cluster(namedtuple: index, course_names).
-    :return: A list containing cluster-indexed courses records
-             of all students.
+    :return: A list of cluster-indexed records corresponding to each student.
+    :cached: Cache the result
     """
+    if not clusters:
+        clusters = load_lv4_clusters()
+
     cluster_idxs_records = []
 
     for taken_course_names in taken_course_names_of_students:
@@ -495,8 +548,9 @@ def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
             cluster_idxs_record.append(idx)
         cluster_idxs_records.append(cluster_idxs_record)
 
-    global _cluster_idxs_records_cache
-    _cluster_idxs_records_cache = cluster_idxs_records.copy()
+    if cached:
+        global _cluster_idxs_records_cache
+        _cluster_idxs_records_cache = cluster_idxs_records.copy()
 
     return cluster_idxs_records
 
@@ -512,7 +566,9 @@ def compute_lv4_frequent_patterns(support=15000, rebuild=False):
         print('Found cluster indexes records of students cache.')
     else:
         print('Building cluster indexes records of students...')
-        build_lv4_cluster_idxs_records(*load_lv4_data())
+        build_lv4_cluster_idxs_records(
+            load_lv4_taken_course_names_of_all_students(only_elective=True),
+            load_lv4_clusters(), cached=True)
 
     print('Computing fp-growth with minsup:{} ...'.format(support))
     # If the support is too low (<1000), then it will take about 10 mins.

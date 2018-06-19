@@ -1,6 +1,6 @@
 
 
-from data_preprocessing import load_lv4_data, compute_lv4_frequent_patterns
+from data_preprocessing import compute_lv4_frequent_patterns
 
 if __name__ == '__main__':
     # If the support is too low (<1000), then it will take about 10 mins.

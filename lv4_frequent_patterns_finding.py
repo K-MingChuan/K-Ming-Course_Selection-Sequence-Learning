@@ -1,6 +1,6 @@
 
 
-from data_preprocessing import load_lv4_data, translate_lv2_frequent_pattern
+from data_preprocessing import load_lv4_data, load_lv4_cluster_idxs_records
 from algorithms.fp_growth import find_frequent_itemsets
 
 if __name__ == '__main__':
@@ -10,32 +10,20 @@ if __name__ == '__main__':
     """
 
     taken_course_names_of_students, clusters = load_lv4_data()
-
-    # Convert taken_course_names of each student to cluster index
-    cluster_idxs_records = []
-
-    for taken_course_names in taken_course_names_of_students:
-        cluster_idxs_record = []
-        for course_name in taken_course_names:
-            idx = None
-            for cluster in clusters:
-                if course_name in cluster.course_names:
-                    idx = cluster.index
-                    break
-            if idx is None:
-                print('Error: Course {} not found in all clusters.'.format(course_name))
-            cluster_idxs_record.append(idx)
-        cluster_idxs_records.append(cluster_idxs_record)
-
-    print(len(cluster_idxs_records))
-
-    # 套用Fp-growth，研究一下support要多少
+    cluster_idxs_records = \
+        load_lv4_cluster_idxs_records(taken_course_names_of_students, clusters)
+    # Applying FP Growth algorithm to the records
     print('Start doing fp-growth...')
-    support = 20
-    cluster_patterns = list(find_frequent_itemsets(cluster_idxs_records,
-                                                   include_support=True, minimum_support=support))
-
-    # 結果已經是sorted所以不用再排序
+    # If the support is too low (<1000), then it will take about 10 mins.
+    support = 15000
+    print('Minsup.: {}'.format(support))
+    cluster_patterns = \
+        list(find_frequent_itemsets(cluster_idxs_records,
+                                    include_support=True,
+                                    minimum_support=support))
+    # We're interested in patterns in descending support, to recommend courses in
+    #   the mainstream course-cluster.
+    cluster_patterns.sort(reverse=True, key=lambda item: item[1])
     print(cluster_patterns)
 
 

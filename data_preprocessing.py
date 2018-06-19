@@ -376,44 +376,6 @@ def load_lv2_data(specified_department_id=None):
         data.append(list(features))
     return data
 
-def load_lv4_data():
-    """
-    :return: Part1, Part2
-    """
-    # Part1: Read taken course names of each student
-    elec_courses = load_elective_courses()
-    elec_course_names = set()
-    for elec_course in elec_courses:
-        elec_course_names.add(elec_course['name'])
-
-    taken_course_names_of_students = []
-    with open('students.json', 'r', encoding='utf-8') as jsonfile:
-        student_records = json.load(jsonfile)
-
-    for student_record in student_records:
-        taken_course_names = []
-        for course_record in student_record['takenClassesRecords']:
-            if course_record['courseName'] in elec_course_names:
-                taken_course_names.append(course_record['courseName'])
-        taken_course_names_of_students.append(taken_course_names)
-
-    # Part2: Read clusters
-    CourseCluster = namedtuple('CourseCluster', 'index course_names')
-    with open('lv4_courses_clusters.pattern', 'r', encoding='utf-8') as file:
-        lines = []
-        for line in file.readlines():
-            line = line.strip()
-            if len(line) > 0:
-                lines.append(line)
-
-    clusters = []
-    for line in lines:
-        cluster_id, courses_str = line.split(':')
-        courses = set(courses_str.split(','))
-        clusters.append(CourseCluster(cluster_id, courses))
-
-    return taken_course_names_of_students, clusters
-
 def translate_lv2_frequent_pattern(frequent_pattern):
     """
     :return: department_name, course_names (list)
@@ -469,6 +431,68 @@ def load_lv3_data():
             print(len(data), 'Students finished.')
     return [d for d in data if len(d) != 0]
 
+def load_lv4_data():
+    """
+    :return: Part1, Part2
+    """
+    # Part1: Read taken course names of each student
+    elec_courses = load_elective_courses()
+    elec_course_names = set()
+    for elec_course in elec_courses:
+        elec_course_names.add(elec_course['name'])
+
+    taken_course_names_of_students = []
+    with open('students.json', 'r', encoding='utf-8') as jsonfile:
+        student_records = json.load(jsonfile)
+
+    for student_record in student_records:
+        taken_course_names = []
+        for course_record in student_record['takenClassesRecords']:
+            if course_record['courseName'] in elec_course_names:
+                taken_course_names.append(course_record['courseName'])
+        taken_course_names_of_students.append(taken_course_names)
+
+    # Part2: Read clusters
+    CourseCluster = namedtuple('CourseCluster', 'index course_names')
+    with open('lv4_courses_clusters.pattern', 'r', encoding='utf-8') as file:
+        lines = []
+        for line in file.readlines():
+            line = line.strip()
+            if len(line) > 0:
+                lines.append(line)
+
+    clusters = []
+    for line in lines:
+        cluster_id, courses_str = line.split(':')
+        courses = set(courses_str.split(','))
+        clusters.append(CourseCluster(cluster_id, courses))
+
+    return taken_course_names_of_students, clusters
+
+def load_lv4_cluster_idxs_records(taken_course_names_of_students, clusters):
+    """
+    Convert taken_course_names of each student to cluster index.
+
+    :param taken_course_names_of_students: A list of taken course names(list).
+    :param clusters: A list of Cluster(namedtuple: index, course_names).
+    :return: A list containing cluster-indexed courses records
+             of all students.
+    """
+    cluster_idxs_records = []
+
+    for taken_course_names in taken_course_names_of_students:
+        cluster_idxs_record = []
+        for course_name in taken_course_names:
+            idx = None
+            for cluster in clusters:
+                if course_name in cluster.course_names:
+                    idx = cluster.index
+                    break
+            if idx is None:
+                print('Error: Course {} not found in all clusters.'.format(course_name))
+            cluster_idxs_record.append(idx)
+        cluster_idxs_records.append(cluster_idxs_record)
+    return cluster_idxs_records
 
 if __name__ == '__main__':
     # test my class

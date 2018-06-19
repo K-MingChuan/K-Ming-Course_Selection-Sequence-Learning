@@ -27,20 +27,15 @@ if __name__ == '__main__':
             cluster_idxs_record.append(idx)
         cluster_idxs_records.append(cluster_idxs_record)
 
+    print(len(cluster_idxs_records))
+
     # 套用Fp-growth，研究一下support要多少
     print('Start doing fp-growth...')
-    support = 100
+    support = 20
     cluster_patterns = list(find_frequent_itemsets(cluster_idxs_records,
                                                    include_support=True, minimum_support=support))
 
     # 結果已經是sorted所以不用再排序
     print(cluster_patterns)
 
-
-    # for pattern, support in course_selection_patterns:
-    #     if len(pattern) >= 3:
-    #         department_name, taken_course_names = translate_lv2_frequent_pattern(pattern)
-    #         if department_name:
-    #             log = '{},{},{}'.format(department_name, ','.join(taken_course_names), support)
-    #             print(log)
 

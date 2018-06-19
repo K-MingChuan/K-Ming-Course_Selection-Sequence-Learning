@@ -85,7 +85,7 @@ def load_elective_courses():
 
 
 def load_elective_course_mapping_name_index():
-    with open('taken_course_names.txt', 'r', encoding='utf-8') as fr:
+    with open('course_names.txt', 'r', encoding='utf-8') as fr:
         course_names = [line.strip() for line in fr.readlines() if len(line.strip()) != 0]
         return dict((name, index) for index, name in enumerate(course_names)),\
                 dict((index, name) for index, name in enumerate(course_names))
@@ -416,7 +416,7 @@ def load_lv4_data():
 
 def translate_lv2_frequent_pattern(frequent_pattern):
     """
-    :return: department_name, taken_course_names (list)
+    :return: department_name, course_names (list)
     """
     assert isinstance(frequent_pattern, list)
     department_id_to_name = load_department_id_to_department_name()

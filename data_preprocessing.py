@@ -4,7 +4,6 @@ import operator
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
-from collections import namedtuple
 from algorithms.fp_growth import find_frequent_itemsets
 
 MAX_TIME = 7  # student can only have at most 12 semesters (6 grades)
@@ -479,7 +478,9 @@ def student_ids_to_course_names_converter(student_ids, only_elective=False):
     return taken_course_names_of_students
 
 def load_lv4_clusters():
-    CourseCluster = namedtuple('CourseCluster', 'index course_names')
+    """
+    :return: A dictionary from cluster id to course names.
+    """
     with open('lv4_courses_clusters.pattern', 'r', encoding='utf-8') as file:
         lines = []
         for line in file.readlines():
@@ -487,11 +488,11 @@ def load_lv4_clusters():
             if len(line) > 0:
                 lines.append(line)
 
-    clusters = []
+    clusters = {}
     for line in lines:
         cluster_id, courses_str = line.split(':')
         courses = set(courses_str.split(','))
-        clusters.append(CourseCluster(cluster_id, courses))
+        clusters[cluster_id] = courses
 
     return clusters
 
@@ -526,7 +527,7 @@ def load_lv4_taken_course_names_of_all_students(only_elective=False):
 def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters=None, cached=False):
     """
     :param taken_course_names_of_students: A list of taken course names.
-    :param clusters: A list of Cluster(namedtuple: index, course_names).
+    :param clusters: A dictionary from cluster id to course names
     :return: A list of cluster-indexed records corresponding to each student.
     :cached: Cache the result
     """
@@ -539,9 +540,9 @@ def build_lv4_cluster_idxs_records(taken_course_names_of_students, clusters=None
         cluster_idxs_record = []
         for course_name in taken_course_names:
             idx = None
-            for cluster in clusters:
-                if course_name in cluster.course_names:
-                    idx = cluster.index
+            for cluster_id, course_names in clusters.items():
+                if course_name in course_names:
+                    idx = cluster_id
                     break
             if idx is None:
                 print('Error: Course {} not found in all clusters.'.format(course_name))
@@ -580,6 +581,49 @@ def compute_lv4_frequent_patterns(support=15000, rebuild=False):
     #   the mainstream course-cluster.
     cluster_patterns.sort(reverse=True, key=lambda item: item[1])
     return cluster_patterns
+
+def lv4_patterns_filter(cluster_patterns, min_len=7):
+    result = []
+    for cluster_pattern in cluster_patterns:
+        if len(cluster_pattern[0]) >= min_len:
+            # print(cluster_pattern[0])
+            result.append(cluster_pattern)
+
+    print('pattern with length at least {}: {}'.format(min_len, len(result)))
+
+    return result
+
+def compute_lv4_diff_sets(student_ids, patterns, only_elective=True):
+    taken_course_names_of_students = \
+        student_ids_to_course_names_converter(student_ids, only_elective=only_elective)
+
+    # Compute cluster-indexed records of each student
+    cluster_indexed_records = build_lv4_cluster_idxs_records(taken_course_names_of_students)
+
+    # 依序將 cluster-indexed record 與 patterns 做比對找出最大交集
+    diff_sets = []
+
+    for r_idx, record in enumerate(cluster_indexed_records):
+        record = set(record)
+        max_match = 0
+        max_at = None
+        for p_idx, pattern in enumerate(patterns):
+            match = len(set(pattern[0]) & record)
+            if match > max_match:
+                max_match = match
+                max_at = p_idx
+
+        student_id = student_ids[r_idx]
+        max_pattern = set(patterns[max_at][0])
+
+        diff_set = max_pattern - record
+        diff_sets.append(diff_set)
+
+        print('Student id: {}, {} ---len_{}---> {} ---diff---> {}' \
+              .format(student_id, record, max_match, max_pattern,
+                      diff_set))
+
+    return diff_sets
 
 if __name__ == '__main__':
     # test my class

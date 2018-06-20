@@ -1,9 +1,11 @@
 from data_preprocessing import compute_lv4_frequent_patterns,\
-    load_lv4_clusters, lv4_patterns_filter, compute_lv4_diff_sets
+    load_lv4_clusters, lv4_patterns_filter, compute_lv4_diff_sets,\
+    load_department_id_to_department_name,\
+    lv4_courses_recommendation_service
 
 import random
 
-test_student_ids = ['05090432', '06090130', '04350090',
+test_student_ids = ['05090432', '06090130',
                     '05170304', '06210695', '06360966',
                     '04360455', '06170020', '05140713',
                     '04160816', '06190883',
@@ -22,18 +24,7 @@ cluster_patterns_ge7 = lv4_patterns_filter(cluster_patterns, min_len=8)
 # Compute the difference between student record & patterns for each.
 diff_sets = compute_lv4_diff_sets(test_student_ids, cluster_patterns_ge7)
 
-# Select courses for recommendation
-association_dict = {
-
-}
-
-# use cluster id to find course in cluster
-clusters = load_lv4_clusters()
-
-for idx, diff_set in enumerate(diff_sets):
-    print(test_student_ids[idx], diff_set)
-    for cluster_id in diff_set:
-        courses = clusters[cluster_id]
-        _idx = random.randint(0, len(courses)-1)
-        print('└---cluster\'{}\'---> {}'.format(cluster_id, list(courses)[_idx]))
+# recommend courses for each student
+for student_id in test_student_ids:
+    recommendations = lv4_courses_recommendation_service(student_id)
 

@@ -1,6 +1,7 @@
 import collections
 import json
 import operator
+import random
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.cluster import KMeans
@@ -624,6 +625,36 @@ def compute_lv4_diff_sets(student_ids, patterns, only_elective=True):
                       diff_set))
 
     return diff_sets
+
+def lv4_courses_recommendation_service(student_id):
+    """
+    :param student_id: The id string of the corresponding student
+    :return: A list of course objects for recommendation
+    """
+    cluster_patterns = compute_lv4_frequent_patterns(7000)
+    print('Total number of patterns: {}'.format(len(cluster_patterns)))
+
+    # Choose only pattern with length >= 7
+    filtered_patterns = lv4_patterns_filter(cluster_patterns, min_len=8)
+    diff_set = compute_lv4_diff_sets([student_id], filtered_patterns)[0]
+
+    clusters = load_lv4_clusters()
+    department_id_to_name = load_department_id_to_department_name()
+    print('ID: {}, Department Name: {}'.format(student_id, department_id_to_name[student_id[2:4]]))
+
+    courses = load_elective_courses()
+
+    recommendations = []
+
+    for cluster_id in diff_set:
+        cluster_courses = clusters[cluster_id]
+        _idx = random.randint(0, len(cluster_courses) - 1)
+        recommendation = list(cluster_courses)[_idx]
+        recommendations.append(recommendation)
+        print('└---cluster\'{}\'---> {}'.format(cluster_id, recommendation))
+
+    return [ course for course in courses if course['name'] in recommendations ]
+
 
 if __name__ == '__main__':
     # test my class

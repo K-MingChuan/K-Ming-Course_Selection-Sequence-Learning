@@ -655,6 +655,20 @@ def lv4_courses_recommendation_service(student_id):
 
     return [ course for course in courses if course['name'] in recommendations ]
 
+def lv4_elective_course_names_to_courses_converter(course_names_of_students):
+    elective_courses = load_elective_courses()
+    courses_of_students = []
+
+    for course_names_of_student in course_names_of_students:
+        courses_of_student = []
+        for course_name in course_names_of_student:
+            for elective_course in elective_courses:
+                if elective_course['name'] == course_name:
+                    courses_of_student.append(elective_course)
+                    break
+        courses_of_students.append(courses_of_student)
+
+    return courses_of_students
 
 if __name__ == '__main__':
     # test my class
